@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rangkuman Label Penyimpanan Sementara</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff; --bg2: #f5f5f3; --bg3: #ebebea;
+  --border: #e3e2df; --border2: #d8d7d3;
+  --text: #1A1A18; --text2: #6b6b67; --text3: #a3a39e;
+  --navy: #1F4E78; --navy-dark: #163a59;
+  --red-bg: #FFC7CE; --red-text: #9C0006;
+  --yellow-bg: #FFEB9C; --yellow-text: #9C6500;
+  --green-bg: #C6EFCE; --green-text: #006100;
+  --radius: 10px;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg2); color: var(--text); font-size: 14px; line-height: 1.5;
+}
+.topbar {
+  background: var(--navy); color: #fff; padding: 18px 28px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+}
+.topbar h1 { font-size: 18px; font-weight: 700; }
+.topbar p { font-size: 12px; opacity: .8; margin-top: 2px; }
+.topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+button {
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  border-radius: 8px; padding: 9px 16px; border: 1px solid transparent; transition: opacity .15s;
+}
+button:hover { opacity: .85; }
+.btn-primary { background: #fff; color: var(--navy); }
+.btn-ghost { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.3); }
+.btn-default { background: #fff; color: var(--text); border: 1px solid var(--border2); }
+.btn-danger { background: #fff; color: #C0392B; border: 1px solid #F5C6C0; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+.container { max-width: 1300px; margin: 0 auto; padding: 22px 24px 60px; }
+
+.stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.stat-card .lbl { font-size: 12px; color: var(--text2); display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+.stat-card .val { font-size: 26px; font-weight: 700; }
+.stat-card.red .val { color: var(--red-text); }
+.stat-card.yellow .val { color: var(--yellow-text); }
+.stat-card.green .val { color: var(--green-text); }
+.dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.dot.red{background:#E24B4A;} .dot.yellow{background:#E2A33E;} .dot.green{background:#3B6D11;}
+
+.legend { display: flex; gap: 18px; align-items: center; margin-bottom: 14px; font-size: 12px; color: var(--text2); flex-wrap: wrap;}
+.legend span { display:flex; align-items:center; gap:6px; }
+.swatch { width: 14px; height: 14px; border-radius: 4px; display:inline-block; }
+
+.toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items:center; }
+.toolbar input[type="text"] {
+  flex: 1; min-width: 200px; padding: 9px 14px; border: 1px solid var(--border2); border-radius: 8px; font-size: 13px; outline: none;
+}
+.toolbar input[type="text"]:focus { border-color: var(--navy); }
+.cb-col { width: 36px; text-align: center; padding: 4px !important; }
+.cb-col input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--navy); }
+tr.row-checked td { outline: 1.5px solid #F59E0B; outline-offset: -1px; }
+.bulk-bar {
+  display: none; align-items: center; gap: 10px; padding: 9px 14px; background: #FFF3E0;
+  border: 1px solid #FFB74D; border-radius: var(--radius); margin-bottom: 10px; font-size: 13px;
+}
+.bulk-bar.show { display: flex; }
+.bulk-bar strong { color: #E65100; }
+
+.table-wrap { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  background: var(--navy); color: #fff; font-weight: 600; text-align: left; padding: 10px 12px;
+  position: sticky; top: 0; white-space: nowrap;
+}
+tbody td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:hover { background: var(--bg2); }
+tbody tr:last-child td { border-bottom: none; }
+td.center { text-align: center; }
+td input[type="text"], td input[type="date"] {
+  width: 100%; border: 1px solid transparent; background: transparent; font-family: inherit; font-size: 13px;
+  padding: 5px 6px; border-radius: 6px; color: var(--text);
+}
+td input[type="text"]:hover, td input[type="date"]:hover { border-color: var(--border2); }
+td input[type="text"]:focus, td input[type="date"]:focus { border-color: var(--navy); background: #fff; outline: none; }
+.badge {
+  display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.badge.red { background: var(--red-bg); color: var(--red-text); }
+.badge.yellow { background: var(--yellow-bg); color: var(--yellow-text); }
+.badge.green { background: var(--green-bg); color: var(--green-text); }
+.badge.gray { background: var(--bg3); color: var(--text3); }
+tr.row-red td.expired-cell { background: var(--red-bg); }
+tr.row-yellow td.expired-cell { background: var(--yellow-bg); }
+tr.row-green td.expired-cell { background: var(--green-bg); }
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text3); }
+
+.note { font-size: 12px; color: var(--text2); margin-bottom: 16px; font-style: italic; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: #fff; padding: 12px 22px; border-radius: 999px; font-size: 13px;
+  opacity: 0; transition: all .25s; pointer-events: none; z-index: 999; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 800px) {
+  .stats { grid-template-columns: repeat(2,1fr); }
+  table { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>📦 Rangkuman Label Penyimpanan Sementara</h1>
+    <p>Tanggal Expired otomatis = hari ke-7 (tanggal mulai dihitung sebagai hari ke-1)</p>
+  </div>
+  <div class="topbar-actions">
+    <label class="btn-ghost" style="cursor:pointer;">
+      ⬆ Import Excel
+      <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(event)">
+    </label>
+    <button class="btn-ghost" onclick="exportExcel()">⬇ Export Excel</button>
+    <button class="btn-primary" onclick="addRow()">+ Tambah Baris</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="lbl">📋 Total Barang</div>
+      <div class="val" id="st-total">0</div>
+    </div>
+    <div class="stat-card red">
+      <div class="lbl"><span class="dot red"></span> Sudah Lewat</div>
+      <div class="val" id="st-red">0</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="lbl"><span class="dot yellow"></span> Akan Expired (≤2 hari)</div>
+      <div class="val" id="st-yellow">0</div>
+    </div>
+    <div class="stat-card green">
+      <div class="lbl"><span class="dot green"></span> Masih Aman</div>
+      <div class="val" id="st-green">0</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="swatch" style="background:var(--red-bg);border:1px solid var(--red-text)"></span> Sudah Lewat / Perlu Diperbarui</span>
+    <span><span class="swatch" style="background:var(--yellow-bg);border:1px solid var(--yellow-text)"></span> Akan Expired (≤ 2 hari)</span>
+    <span><span class="swatch" style="background:var(--green-bg);border:1px solid var(--green-text)"></span> Masih Aman</span>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Cari nama barang atau lokasi..." oninput="render()">
+  </div>
+
+  <div class="bulk-bar" id="bulk-bar">
+    <span><strong id="bulk-count">0</strong> barang dipilih</span>
+    <button class="btn-danger btn-sm" onclick="hapusBulk()">🗑 Hapus Dipilih</button>
+    <button class="btn-default btn-sm" onclick="clearSelection()">✕ Batal Pilih</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="cb-col"><input type="checkbox" id="cb-all" onchange="toggleAll(this.checked)"></th>
+          <th style="width:46px">No</th>
+          <th style="width:150px">Tanggal</th>
+          <th>Nama Barang</th>
+          <th style="width:220px">Lokasi</th>
+          <th style="width:180px">Keterangan</th>
+          <th style="width:150px">Tanggal Expired</th>
+          <th style="width:130px">Status</th>
+          <th style="width:60px"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <p class="note">💡 Tanggal Expired dihitung otomatis (tanggal mulai + 6 hari = hari ke-7) dan warnanya ikut berubah otomatis setiap hari sesuai tanggal hari ini — tidak perlu diedit manual.</p>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let items = [];
+let toastTimer;
+
+// ════════════════════════════════════════════════════════════════
+// 🔥 FIREBASE — DATABASE BERSAMA ANTAR DIVISI/PERANGKAT
+// Pakai project Firebase yang sama dengan app "Rekapan Nota Gudang"
+// dan "Manajemen Stok Gudang", tapi koleksi data terpisah.
+// ════════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBbXGgCogV7MnPbmNQJmrqEpgY6JHZX7lQ",
+  authDomain: "rekapan-nota-divisi-2026.firebaseapp.com",
+  projectId: "rekapan-nota-divisi-2026",
+  storageBucket: "rekapan-nota-divisi-2026.firebasestorage.app",
+  messagingSenderId: "1074988416164",
+  appId: "1:1074988416164:web:99457c7b50c60dc50e7a31"
+};
+let fbDb = null, fbReady = false;
+try {
+  if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf('GANTI_') !== 0) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbDb = firebase.firestore();
+    fbReady = true;
+  } else {
+    console.log('Firebase belum dikonfigurasi — mode lokal saja.');
+  }
+} catch (e) {
+  console.warn('Gagal inisialisasi Firebase:', e);
+}
+const FB_COLL = 'label_sementara_items';
+
+// ── Kirim satu item ke Firestore (dipakai saat tambah/edit) ──
+function pushItemRemote(it) {
+  if (!fbReady) return;
+  fbDb.collection(FB_COLL).doc(it.id).set({ tanggal: it.tanggal || '', nama: it.nama || '', lokasi: it.lokasi || '', keterangan: it.keterangan || '' })
+    .catch(err => { console.error('Gagal sinkron ke cloud:', err); showToast('⚠️ Gagal sinkron ke cloud (cek koneksi internet).'); });
+}
+function deleteItemRemote(id) {
+  if (!fbReady) return;
+  fbDb.collection(FB_COLL).doc(id).delete().catch(err => console.error('Gagal hapus di cloud:', err));
+}
+async function seedFirebaseIfEmpty() {
+  if (!fbReady) return;
+  try {
+    const snap = await fbDb.collection(FB_COLL).limit(1).get();
+    if (snap.empty && items.length) {
+      await Promise.all(items.map(it => fbDb.collection(FB_COLL).doc(it.id).set({ tanggal: it.tanggal||'', nama: it.nama||'', lokasi: it.lokasi||'', keterangan: it.keterangan||'' })));
+      console.log('Data awal berhasil dikirim ke Firestore.');
+    }
+  } catch (e) { console.warn('Gagal cek/seed Firestore:', e); }
+}
+function setupFirebaseListener() {
+  if (!fbReady) return;
+  fbDb.collection(FB_COLL).onSnapshot(snapshot => {
+    const remote = [];
+    snapshot.forEach(doc => remote.push(Object.assign({ id: doc.id }, doc.data())));
+    items = remote;
+    render();
+  }, err => {
+    console.error('Firebase listener error:', err);
+    showToast('⚠️ Gagal terhubung ke database cloud. Cek koneksi internet.');
+  });
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function addDays(dateStr, days) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function daysBetween(a, b) {
+  const d1 = new Date(a + 'T00:00:00');
+  const d2 = new Date(b + 'T00:00:00');
+  return Math.round((d1 - d2) / 86400000);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return d + '/' + m + '/' + y;
+}
+
+function getStatus(expiredIso) {
+  if (!expiredIso) return null;
+  const diff = daysBetween(expiredIso, todayStr()); // expired - today
+  if (diff < 0) return 'red';
+  if (diff <= 2) return 'yellow';
+  return 'green';
+}
+
+function addRow() {
+  const newItem = { id: Date.now() + Math.random().toString(36).slice(2,7), tanggal: '', nama: '', lokasi: '', keterangan: '' };
+  items.push(newItem);
+  render();
+  showToast('✓ Baris baru ditambahkan');
+  pushItemRemote(newItem);
+}
+
+function deleteRow(id) {
+  if (!confirm('Hapus baris ini?')) return;
+  items = items.filter(it => it.id !== id);
+  selected.delete(id);
+  syncBulkBar();
+  render();
+  saveLocal();
+  showToast('🗑 Baris dihapus');
+  deleteItemRemote(id);
+}
+
+function updateField(id, field, value) {
+  const it = items.find(i => i.id === id);
+  if (it) { it[field] = value; pushItemRemote(it); }
+  saveLocal();
+  render();
+}
+
+let selected = new Set();
+
+function toggleSelect(id, checked) {
+  if (checked) selected.add(id); else selected.delete(id);
+  syncBulkBar();
+  render();
+}
+
+function toggleAll(checked) {
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const filtered = items.filter(it => !q || (it.nama||'').toLowerCase().includes(q) || (it.lokasi||'').toLowerCase().includes(q));
+  selected = checked ? new Set(filtered.map(it => it.id)) : new Set();
+  syncBulkBar();
+  render();
+}
+
+function clearSelection() {
+  selected = new Set();
+  syncBulkBar();
+  render();
+}
+
+function syncBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const count = document.getElementById('bulk-count');
+  if (selected.size > 0) {
+    bar.classList.add('show');
+    count.textContent = selected.size;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+function hapusBulk() {
+  const n = selected.size;
+  if (!n) return;
+  if (!confirm('Hapus ' + n + ' barang yang dipilih?')) return;
+  const idsToDelete = Array.from(selected);
+  items = items.filter(it => !selected.has(it.id));
+  selected = new Set();
+  render();
+  saveLocal();
+  syncBulkBar();
+  showToast('🗑 ' + n + ' barang dihapus.');
+  idsToDelete.forEach(deleteItemRemote);
+}
+
+function render() {
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const tbody = document.getElementById('tbody');
+  const filtered = items.filter(it => !q || (it.nama||'').toLowerCase().includes(q) || (it.lokasi||'').toLowerCase().includes(q));
+
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Belum ada data. Klik "+ Tambah Baris" untuk mulai.</td></tr>';
+  } else if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Tidak ada hasil untuk pencarian ini.</td></tr>';
+  } else {
+    tbody.innerHTML = filtered.map((it, idx) => {
+      const expired = it.tanggal ? addDays(it.tanggal, 6) : '';
+      const status = getStatus(expired);
+      const rowClass = status ? 'row-' + status : '';
+      const badge = status === 'red' ? '<span class="badge red">🔴 Sudah Lewat</span>'
+                  : status === 'yellow' ? '<span class="badge yellow">🟡 Akan Expired</span>'
+                  : status === 'green' ? '<span class="badge green">🟢 Masih Aman</span>'
+                  : '<span class="badge gray">—</span>';
+      const checked = selected.has(it.id);
+      return '<tr class="' + rowClass + (checked ? ' row-checked' : '') + '">' +
+        '<td class="cb-col"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleSelect(\'' + it.id + '\',this.checked)"></td>' +
+        '<td class="center">' + (idx+1) + '</td>' +
+        '<td><input type="date" value="' + (it.tanggal||'') + '" onchange="updateField(\'' + it.id + '\',\'tanggal\',this.value)"></td>' +
+        '<td><input type="text" placeholder="Nama barang..." value="' + escapeHtml(it.nama||'') + '" onchange="updateField(\'' + it.id + '\',\'nama\',this.value)"></td>' +
+        '<td><input type="text" placeholder="Lokasi..." value="' + escapeHtml(it.lokasi||'') + '" onchange="updateField(\'' + it.id + '\',\'lokasi\',this.value)"></td>' +
+        '<td><input type="text" placeholder="Keterangan..." value="' + escapeHtml(it.keterangan||'') + '" onchange="updateField(\'' + it.id + '\',\'keterangan\',this.value)"></td>' +
+        '<td class="center expired-cell"><strong>' + (expired ? fmtDate(expired) : '—') + '</strong></td>' +
+        '<td class="center">' + badge + '</td>' +
+        '<td class="center"><button class="btn-danger btn-sm" onclick="deleteRow(\'' + it.id + '\')">🗑</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+  updateStats();
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateStats() {
+  let red = 0, yellow = 0, green = 0;
+  items.forEach(it => {
+    if (!it.tanggal) return;
+    const expired = addDays(it.tanggal, 6);
+    const status = getStatus(expired);
+    if (status === 'red') red++;
+    else if (status === 'yellow') yellow++;
+    else if (status === 'green') green++;
+  });
+  document.getElementById('st-total').textContent = items.length;
+  document.getElementById('st-red').textContent = red;
+  document.getElementById('st-yellow').textContent = yellow;
+  document.getElementById('st-green').textContent = green;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Simpan & muat dari localStorage (per-browser) ──
+function saveLocal() {
+  try { localStorage.setItem('label_sementara_data', JSON.stringify(items)); } catch(e) {}
+}
+function loadLocal() {
+  try {
+    const saved = localStorage.getItem('label_sementara_data');
+    if (saved) items = JSON.parse(saved);
+  } catch(e) {}
+}
+
+// ── Export Excel ──
+function exportExcel() {
+  const rows = [['No','Tanggal','Nama Barang','Lokasi','Keterangan','Tanggal Expired','Status']];
+  items.forEach((it, idx) => {
+    const expired = it.tanggal ? addDays(it.tanggal, 6) : '';
+    const status = getStatus(expired);
+    const statusLabel = status === 'red' ? 'Sudah Lewat' : status === 'yellow' ? 'Akan Expired' : status === 'green' ? 'Masih Aman' : '';
+    rows.push([idx+1, it.tanggal ? fmtDate(it.tanggal) : '', it.nama||'', it.lokasi||'', it.keterangan||'', expired ? fmtDate(expired) : '', statusLabel]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:5},{wch:12},{wch:30},{wch:22},{wch:25},{wch:14},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Label Penyimpanan');
+  XLSX.writeFile(wb, 'Rangkuman_Label_Penyimpanan_Sementara_' + todayStr() + '.xlsx');
+  showToast('✅ Export Excel berhasil!');
+}
+
+// ── Import Excel ──
+function importExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      let imported = 0;
+      rows.forEach(row => {
+        if (!row.length) return;
+        const headerLike = row.some(c => typeof c === 'string' && /tanggal|nama|lokasi|no/i.test(c));
+        if (headerLike) return;
+        const [no, tgl, nama, lokasi, keterangan] = row;
+        if (!nama && !tgl) return;
+        let tanggalIso = '';
+        if (tgl instanceof Date) {
+          tanggalIso = tgl.getFullYear() + '-' + String(tgl.getMonth()+1).padStart(2,'0') + '-' + String(tgl.getDate()).padStart(2,'0');
+        } else if (typeof tgl === 'string' && tgl.includes('/')) {
+          const parts = tgl.split('/');
+          if (parts.length === 3) tanggalIso = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+        }
+        items.push({ id: Date.now() + Math.random().toString(36).slice(2,7), tanggal: tanggalIso, nama: String(nama||''), lokasi: String(lokasi||''), keterangan: String(keterangan||'') });
+        imported++;
+      });
+      render();
+      saveLocal();
+      if (imported > 0) items.slice(-imported).forEach(pushItemRemote);
+      showToast('✅ ' + imported + ' baris berhasil diimport!');
+    } catch (err) {
+      console.error(err);
+      showToast('⚠ Gagal membaca file Excel.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Init ──
+function init() {
+  loadLocal();
+  if (!items.length) {
+    // contoh data awal, pakai tanggal relatif hari ini (selalu relevan)
+    const t = todayStr();
+    items.push({ id: 'demo1', tanggal: addDays(t, -10), nama: 'Contoh: Sample Kimia A (sudah lewat)', lokasi: 'Ruang Kantor', keterangan: 'Segera diperbarui' });
+    items.push({ id: 'demo2', tanggal: addDays(t, -5), nama: 'Contoh: ACP (akan expired)', lokasi: 'Depan Ruang Istirahat', keterangan: '' });
+    items.push({ id: 'demo3', tanggal: t, nama: 'Contoh: Sample Baru (masih aman)', lokasi: 'Gudang Utama', keterangan: '' });
+  }
+  render();
+  if (fbReady) {
+    seedFirebaseIfEmpty().then(() => setupFirebaseListener());
+  }
+}
+init();
+</script>
+</body>
+</html>
